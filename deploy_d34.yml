@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-sf       
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx-pod
+  replicas: 3  
+  template:
+    metadata:
+      labels:
+        app: nginx-pod
+    spec:
+      containers:
+      — name: nginx-container
+        image: nginx:1.21.1-alpine
+        ports:
+          — containerPort: 80
+      volumeMounts:
+      — name: config-volume
+        mountPath: "/etc/nginx"
+        readOnly: true
+      - name: httpaswd_dir
+        mountPath: "/etc/apache2"
+      volumes:
+      — name: config-volume           
+        configMap:
+          name: nginx-config
+          items:
+          - key: nginx.conf
+            path: nginx.conf
+      initContainers:
+      - name: install
+        image: alpine:3.6
+        env:
+        - name: NGINX_USERNAME
+          value: "user1"
+        - name: NGINX_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth_basic
+              key: user1
+        command: ['/bin/sh', '-c', 'apk --update --no-cache --virtual build-dependencies add apache2-utils && htpasswd -b -c /etc/apache2/.htpasswd $NGINX_USERNAME $NGINX_PASSWORD']
+        volumeMounts:
+        - name: httpaswd_dir
+          mountPath: "/etc/apache2"
+    volumes:
+    - name: httpaswd_dir
+      emptyDir: {}
